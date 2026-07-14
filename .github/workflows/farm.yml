@@ -1,0 +1,51 @@
+name: Auto Farm Achievements
+
+on:
+  workflow_dispatch: # Memungkinkan kamu menjalankan script ini secara manual dengan 1 klik
+
+jobs:
+  farm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run Auto PR & Merge Loop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Loop ini akan berjalan 3 kali untuk menaikkan tier Pull Shark ke x3
+          for i in {1..3}
+          do
+            BRANCH_NAME="auto-farm-$i"
+            echo "== Running Loop $i (Branch: $BRANCH_NAME) =="
+            
+            # 1. Buat branch baru
+            git checkout -b $BRANCH_NAME
+            
+            # 2. Buat perubahan kecil di file README
+            echo -e "\n- Auto farm update $i on $(date)" >> README.md
+            
+            # 3. Commit dan Push ke branch baru
+            git add README.md
+            git commit -m "chore: auto update for farming $i"
+            git push origin $BRANCH_NAME
+            
+            # 4. Buat Pull Request menggunakan GitHub CLI (gh)
+            PR_URL=$(gh pr create --title "Auto Farm PR $i" --body "Automated PR for farming achievements" --head $BRANCH_NAME --base main)
+            echo "Created PR: $PR_URL"
+            
+            # 5. Detik itu juga langsung Merge PR (Trigger YOLO & Quickdraw)
+            gh pr merge $PR_URL --merge --delete-branch
+            
+            # 6. Kembali ke branch main untuk loop berikutnya
+            git checkout main
+            git pull origin main
+          done
